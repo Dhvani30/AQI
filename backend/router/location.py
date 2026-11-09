@@ -1,10 +1,13 @@
-from fastapi import APIRouter 
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-router=APIRouter(prefix="/location",tags=["location"])
+router = APIRouter(prefix="/location", tags=["location"])
+
+
 class LocationData(BaseModel):
     longitude: float
     latitude: float
+
 
 @router.post("/update")
 def update_location(data: LocationData):
