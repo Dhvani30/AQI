@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from backend.router import api, location
 from db_service import test_connection
-from router import user
+from router import user, location
 
 app = FastAPI(title="AQI prediction API")
 app.add_middleware(
@@ -10,6 +11,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],)
+app.include_router(api.router)
+app.include_router(location.router)
 app.include_router(user.router)
 @app.get("/")
 def read_root():
