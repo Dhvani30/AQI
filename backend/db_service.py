@@ -40,11 +40,13 @@ except Exception as exc:
 
 
 def _as_float(value):
+    if value is None:
+        return None
     try:
         number = float(value)
     except (TypeError, ValueError):
-        return 0.0
-    return number if math.isfinite(number) else 0.0
+        return None
+    return number if math.isfinite(number) else None
 
 
 async def save_environmental_data(lat: float, lon: float, data: dict):
@@ -58,15 +60,21 @@ async def save_environmental_data(lat: float, lon: float, data: dict):
         weather_data = data.get("weather") or {}
         traffic_data = data.get("traffic") or {}
 
-        point = (
-            Point("environmental_readings")
-            .tag("location", f"{lat},{lon}")
-            .field("aqi", _as_float(aqi_value))
-            .field("temperature", _as_float(weather_data.get("temperature")))
-            .field("humidity", _as_float(weather_data.get("humidity")))
-            .field("traffic_index", _as_float(traffic_data.get("traffic_index", traffic_data.get("jam_factor"))))
-            .time(datetime.now(timezone.utc))
-        )
+        fields = {
+            "aqi": _as_float(aqi_value),
+            "temperature": _as_float(weather_data.get("temperature")),
+            "humidity": _as_float(weather_data.get("humidity")),
+            "traffic_index": _as_float(traffic_data.get("traffic_index", traffic_data.get("jam_factor"))),
+        }
+        fields = {name: value for name, value in fields.items() if value is not None}
+        if not fields:
+            print("Skipping InfluxDB write: no numeric environmental readings are available")
+            return
+
+        point = Point("environmental_readings").tag("location", f"{lat},{lon}")
+        for name, value in fields.items():
+            point = point.field(name, value)
+        point = point.time(datetime.now(timezone.utc))
 
         write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
         print("Environmental reading saved to InfluxDB")
@@ -79,7 +87,7 @@ def test_connection():
         return False
 
     try:
-        return client.health().status == "pass"
+        return client.ping()
     except Exception as exc:
-        print(f"InfluxDB health check failed: {exc}")
+        print(f"InfluxDB connectivity check failed: {exc}")
         return False

@@ -1,25 +1,32 @@
 import os
+from pathlib import Path
+
 import httpx
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 
-async def get_traffic_data(lat: float, lon:float):
-    key= os.getenv("TOMTOM_API_KEY")
-    url = f"https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?point={lat},{lon}&key={key}"
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url)
+async def get_traffic_data(lat: float, lon: float):
+    key = os.getenv("TOMTOM_API_KEY")
+    if not key:
+        raise RuntimeError("TOMTOM_API_KEY is not configured")
+
+    url = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json"
+    async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+        response = await client.get(
+            url,
+            params={"point": f"{lat},{lon}", "key": key},
+        )
+        response.raise_for_status()
         data = response.json()
 
-        if "flowSegmentData" in data:
-            segment_data = data["flowSegmentData"]
-            return {
-                "current_speed": segment_data.get("currentSpeed"),
-                "free_flow_speed": segment_data.get("freeFlowSpeed"),
-                "confidence": segment_data.get("confidence"),
-                "road_closed": segment_data.get("roadClosed"),
-                "jam_factor": segment_data.get("jamFactor"),
-                "speed_limit": segment_data.get("speedLimit")
-            }
-        return{"Current_speed": None, "free_flow_speed": None, "confidence": None, "road_closed": None, "jam_factor": None, "speed_limit": None}
+    segment = data.get("flowSegmentData") or {}
+    return {
+        "current_speed": segment.get("currentSpeed"),
+        "free_flow_speed": segment.get("freeFlowSpeed"),
+        "confidence": segment.get("confidence"),
+        "road_closed": segment.get("roadClosed"),
+        "jam_factor": segment.get("jamFactor"),
+        "speed_limit": segment.get("speedLimit"),
+    }
