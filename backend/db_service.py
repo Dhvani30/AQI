@@ -1,35 +1,85 @@
+import math
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+
+from dotenv import load_dotenv
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
-import os
-from dotenv import load_dotenv
-from datetime import datetime
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 
-client = InfluxDBClient(url=os.getenv("INFLUXDB_URL"), token=os.getenv("INFLUXDB_TOKEN"), org=os.getenv("INFLUXDB_ORG"))
-write_api = client.write_api(write_options=SYNCHRONOUS)
+INFLUX_URL = os.getenv("INFLUXDB_URL")
+INFLUX_TOKEN = os.getenv("INFLUXDB_TOKEN")
+INFLUX_ORG = os.getenv("INFLUXDB_ORG")
+INFLUX_BUCKET = os.getenv("INFLUXDB_BUCKET")
+
+print("--- INFLUXDB CONNECTION ATTEMPT ---")
+print(f"URL: {INFLUX_URL}")
+print(f"ORG: {INFLUX_ORG}")
+print(f"BUCKET: {INFLUX_BUCKET}")
+
+client = None
+write_api = None
+
+try:
+    if not all((INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG)):
+        raise ValueError("INFLUXDB_URL, INFLUXDB_TOKEN, and INFLUXDB_ORG must be set")
+
+    client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+    write_api = client.write_api(write_options=SYNCHRONOUS)
+
+    if client.ping():
+        print("InfluxDB connection successful")
+    else:
+        print("InfluxDB ping failed")
+except Exception as exc:
+    print(f"InfluxDB initialization failed: {exc}")
+    client = None
+    write_api = None
+
+
+def _as_float(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return number if math.isfinite(number) else 0.0
+
 
 async def save_environmental_data(lat: float, lon: float, data: dict):
+    if write_api is None or not INFLUX_BUCKET:
+        print("Skipping InfluxDB write: client or bucket is not configured")
+        return
+
     try:
-        # Create a Point for InfluxDB
+        aqi_data = data.get("aqi") or {}
+        aqi_value = aqi_data.get("aqi", 0) if isinstance(aqi_data, dict) else aqi_data
+        weather_data = data.get("weather") or {}
+        traffic_data = data.get("traffic") or {}
+
         point = (
             Point("environmental_readings")
             .tag("location", f"{lat},{lon}")
-            .field("aqi", data.get("aqi", {}).get("aqi", 0) if data.get("aqi") else 0)
-            .field("temperature", data.get("weather", {}).get("temperature", 0) if data.get("weather") else 0)
-            .field("humidity", data.get("weather", {}).get("humidity", 0) if data.get("weather") else 0)
-            .field("traffic_index", data.get("traffic", {}).get("traffic_index", 0) if data.get("traffic") else 0)
-            .time(datetime.utcnow())
+            .field("aqi", _as_float(aqi_value))
+            .field("temperature", _as_float(weather_data.get("temperature")))
+            .field("humidity", _as_float(weather_data.get("humidity")))
+            .field("traffic_index", _as_float(traffic_data.get("traffic_index", traffic_data.get("jam_factor"))))
+            .time(datetime.now(timezone.utc))
         )
-        write_api.write(bucket=os.getenv("INFLUXDB_BUCKET"), record=point)
-    except Exception as e:
-        print(f"Error saving to InfluxDB: {e}")
+
+        write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+        print("Environmental reading saved to InfluxDB")
+    except Exception as exc:
+        print(f"Error saving environmental data to InfluxDB: {exc}")
 
 
 def test_connection():
-    """Return whether the configured InfluxDB server reports healthy."""
+    if client is None:
+        return False
+
     try:
         return client.health().status == "pass"
-    except Exception as e:
-        print(f"InfluxDB health check failed: {e}")
+    except Exception as exc:
+        print(f"InfluxDB health check failed: {exc}")
         return False
