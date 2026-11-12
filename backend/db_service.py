@@ -82,6 +82,25 @@ async def save_environmental_data(lat: float, lon: float, data: dict):
         print(f"Error saving environmental data to InfluxDB: {exc}")
 
 
+def save_location_history(lat: float, lon: float, username: str | None = None) -> bool:
+    if write_api is None or not INFLUX_BUCKET:
+        return False
+
+    try:
+        point = (
+            Point("user_location_history")
+            .tag("user", username or "anonymous")
+            .field("lat", float(lat))
+            .field("lon", float(lon))
+            .time(datetime.now(timezone.utc))
+        )
+        write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+        return True
+    except Exception as exc:
+        print(f"Error saving location history to InfluxDB: {exc}")
+        return False
+
+
 def test_connection():
     if client is None:
         return False

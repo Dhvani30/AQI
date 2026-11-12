@@ -1,6 +1,6 @@
 # AI-AQI Environmental Dashboard
 
-AI-AQI uses a user-approved device location to show nearby air-quality stations, a current WAQI AQI reading, available pollutant sub-index values, and local weather. The current milestone is a location-aware dashboard; route planning, forecasting, alerts, and user profiles remain future work.
+AI-AQI uses a user-approved device location to show nearby air-quality stations, a current WAQI AQI reading, available pollutant sub-index values, and local weather. Accounts can save health sensitivities and receive AQI advisories based on a personal threshold.
 
 <p align="center"><img src="AI-AQI.png" alt="AI-AQI mobile product reference showing nearby air, trip planning, route comparison, alerts, exposure, and profile screens" width="100%"></p>
 
@@ -15,6 +15,8 @@ AI-AQI uses a user-approved device location to show nearby air-quality stations,
 - A visible no-data state or station-distance/confidence message when a nearby measured AQI cannot be used directly.
 - Partial responses and per-section retry states when an external provider is unavailable.
 - Environmental readings written to InfluxDB Cloud.
+- Account registration and login with JWT authentication.
+- Saved health sensitivity profile and personalized AQI advisory.
 
 WAQI's pollutant values are shown as provider sub-index values when that is what the response contains. They are not represented as raw concentration measurements.
 
@@ -30,6 +32,7 @@ INFLUXDB_BUCKET=aqi_data
 WAQI_API_TOKEN=...
 OPENWEATHERMAP_API_KEY=...
 TOMTOM_API_KEY=...
+JWT_SECRET=your-random-secret-at-least-32-bytes
 ```
 
 Start the backend from the repository root:
@@ -48,7 +51,7 @@ npm install
 npm run dev
 ```
 
-Open the URL printed by Vite. The frontend calls FastAPI at `http://127.0.0.1:8000` by default; set `VITE_API_BASE_URL` to use a different backend URL. Browser location access requires user permission and a secure browser context such as localhost or HTTPS.
+Open the URL printed by Vite. Vite proxies API requests to FastAPI at `http://127.0.0.1:8000`; set `VITE_API_BASE_URL` to use a different backend URL. Browser location access requires user permission and a secure browser context such as localhost or HTTPS.
 
 ## Verification
 
@@ -63,4 +66,4 @@ The scripts write reports to `docs/db_verification_report.md` and `docs/e2e_test
 
 ## Stack
 
-React, TypeScript, Vite, Leaflet, FastAPI, HTTPX, WAQI, OpenWeatherMap, TomTom Traffic, and InfluxDB Cloud.
+React, TypeScript, Vite, Leaflet, FastAPI, SQLite, JWT, HTTPX, WAQI, OpenWeatherMap, TomTom Traffic, and InfluxDB Cloud.

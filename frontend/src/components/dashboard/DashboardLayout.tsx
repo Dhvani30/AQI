@@ -2,23 +2,23 @@ import type { ReactNode } from 'react';
 
 interface DashboardLayoutProps {
   children: ReactNode;
+  navigation?: ReactNode;
 }
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, navigation }: DashboardLayoutProps) {
   return (
     <div className="dashboard-shell">
       <header className="app-header">
         <a className="wordmark" href="/" aria-label="AI-AQI home">
-          <span className="wordmark-mark" aria-hidden="true">A</span>
-          <span><strong>AI-AQI</strong><small>Air near you</small></span>
+          <span><strong>AI-AQI</strong></span>
         </a>
-        <span className="header-caption">NEARBY AIR QUALITY</span>
-        <span className="header-indicator"><span /> LIVE DATA</span>
+        <span className="header-indicator"><span /> LIVE</span>
       </header>
       <main className="dashboard-content">{children}</main>
+      {navigation}
       <footer className="app-footer">
         <span>Air readings can vary by station and update time.</span>
-        <span>Location is requested only when you ask.</span>
+        <span>When you request a location fix, its coordinates are stored in location history.</span>
       </footer>
     </div>
   );

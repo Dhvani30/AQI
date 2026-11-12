@@ -27,8 +27,11 @@ export default function LocationBanner({ location, loading, error, onRequestLoca
             </p>
           </>
         ) : (
-          <p className="location-meta">Share your device location to find nearby air-quality stations.</p>
+          <p className="location-meta">
+            Share your device location to find nearby air-quality stations.
+          </p>
         )}
+        <p className="location-meta">Coordinates are sent to location history when you use this control.</p>
         {error && <p className="location-error" role="alert">{error}</p>}
         {location?.accuracy !== null && location?.accuracy !== undefined && location.accuracy > 1000 && (
           <p className="location-warning" role="status">Location uncertainty is over 1 km. Check device location settings for a closer fix.</p>

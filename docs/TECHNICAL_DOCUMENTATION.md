@@ -28,13 +28,17 @@ The three provider requests run independently. A provider failure is represented
 backend/
   main.py
   db_service.py
+  model/                  Pydantic request models
   router/                 FastAPI route modules
-  services/               WAQI, weather, traffic, aggregation
+  services/               Authentication, profiles, AQI, weather, traffic
+  users.db                Local SQLite account data; ignored by Git
   .env                    Local credentials; ignored by Git
 frontend/
   src/components/dashboard/  Dashboard sections and map
+  src/components/AuthPage.tsx
+  src/components/ProfilePage.tsx
   src/hooks/useGeolocation.ts
-  src/services/api.ts
+  src/services/           API and session clients
 scripts/                  Database and end-to-end verification
 docs/                     Verification reports and project documentation
 submission/               Final artifact checklist
@@ -59,6 +63,7 @@ INFLUXDB_BUCKET=aqi_data
 WAQI_API_TOKEN=...
 OPENWEATHERMAP_API_KEY=...
 TOMTOM_API_KEY=...
+JWT_SECRET=generate-a-random-secret-of-at-least-32-bytes
 ```
 
 Never commit `.env`. Run the API from `backend/`:
@@ -76,7 +81,7 @@ npm install
 npm run dev
 ```
 
-The browser must grant geolocation permission. `localhost` is considered a secure context by modern browsers. The frontend calls FastAPI at `http://127.0.0.1:8000` by default; set `VITE_API_BASE_URL` in the frontend environment to use another API origin. Cross-origin deployments must configure the backend CORS origins to include the frontend origin.
+The browser must grant geolocation permission. `localhost` is considered a secure context by modern browsers. Vite proxies `/api`, `/health`, `/location`, `/users`, and `/auth` to FastAPI at `http://127.0.0.1:8000`. Set `VITE_API_BASE_URL` in the frontend environment to use another API origin. Cross-origin deployments must configure the backend CORS origins to include the frontend origin.
 
 ## API reference
 
@@ -141,7 +146,22 @@ AQI spatial selection tries progressively larger WAQI map-feed radii (10, 25, 50
 
 Returns nearby WAQI stations with station name, coordinates, available AQI/pollutant sub-indices, and source update time. `radius_km` is bounded by the API. Station data depends on WAQI map-feed availability.
 
-Existing `POST /location/update`, `POST /users/register`, and `GET /users/{username}` endpoints remain available.
+### Authentication and user profiles
+
+Authentication endpoints accept JSON and return a signed JWT with the username. The frontend stores the token and username in local storage and sends the token as a Bearer credential for protected calls.
+
+| Method and path | Authentication | Purpose |
+| --- | --- | --- |
+| `POST /auth/register` | Public | Create an account and return a token; returns HTTP 409 when the username is taken. |
+| `POST /auth/login` | Public | Check credentials and return a token; invalid credentials share one HTTP 401 message. |
+| `GET /users/me` | Bearer token | Return the signed-in user's account and health profile. |
+| `PUT /users/me/health-profile` | Bearer token | Update health sensitivity and return the personal threshold. |
+| `POST /users/me/evaluate` | Bearer token | Evaluate the supplied AQI against the personal threshold. |
+| `POST /location/update` | Bearer token | Store a location-history point tagged to the authenticated account. |
+
+JWTs use HS256 with `sub` and `exp` claims and expire 24 hours after issue. `JWT_SECRET` is loaded from `backend/.env`; configure a randomly generated secret of at least 32 bytes and keep it private. Passwords are never stored in plaintext: the service stores a Base64 encoding of a 16-byte random salt and a PBKDF2-HMAC-SHA256 derived key using 120,000 iterations. Password hashes are excluded from user responses. Existing SQLite databases are migrated by adding `password_hash` if needed.
+
+The health profile uses a default alert threshold of 100 AQI, 50 for asthma sensitivity, and 75 for older adults or children. A custom threshold overrides those defaults.
 
 ## External services and data interpretation
 
@@ -161,6 +181,8 @@ Existing `POST /location/update`, `POST /users/register`, and `GET /users/{usern
 - Timestamp: UTC write time
 - Retention: configured on the Cloud bucket; the application does not set retention.
 
+Location history is written to the `user_location_history` measurement with a `user` tag and numeric `lat` and `lon` fields. Its timestamp is UTC. Requests require a valid account token; the backend takes the tag value from the token subject.
+
 The database verification script queries the last 24 hours and records observed retention and field data in `docs/db_verification_report.md`.
 
 ## Known limitations
@@ -171,3 +193,6 @@ The database verification script queries the last 24 hours and records observed 
 - IDW is a spatial estimate from current WAQI station AQIs, not an official reading at the user's coordinates; its accuracy depends on station density and source freshness.
 - WAQI pollutant sub-indices are not concentration measurements unless the provider explicitly supplies concentration units.
 - Manual location search, IP-location comparison, forecasting, route advice, and push notifications are outside this milestone.
+- OAuth/social login is not implemented.
+- Password-reset email is not implemented in this development scope.
+- JWT secret rotation and token revocation are not implemented; existing tokens remain valid until their 24-hour expiration unless the signing secret changes.

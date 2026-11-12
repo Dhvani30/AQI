@@ -77,15 +77,46 @@ export interface StationInfo {
   distance_km: number;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
+import { authFetch } from './auth';
+import type { Advisory } from './auth';
+
+export type { Advisory, HealthProfile, UserProfile } from './auth';
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, init);
+  return readJson<T>(response);
+}
+
+async function requestAuthenticatedJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return readJson<T>(await authFetch(path, init));
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+  const body = await response.json().catch(() => null) as unknown;
+  if (!response.ok) {
+    const detail = typeof body === 'object' && body !== null && 'detail' in body
+      ? body.detail
+      : null;
+    const message = typeof detail === 'string' ? detail : `Request failed with HTTP ${response.status}`;
+    throw new ApiError(message, response.status);
+  }
+  return body as T;
+}
 
 async function getJson<T>(path: string, signal: AbortSignal): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, { signal });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
-    throw new Error(body?.detail ?? `Request failed with HTTP ${response.status}`);
-  }
-  return (await response.json()) as T;
+  return requestJson<T>(path, { signal });
 }
 
 export function getCombinedEnvironment(
@@ -104,4 +135,26 @@ export function getStations(
 ): Promise<{ stations: StationInfo[] }> {
   const query = new URLSearchParams({ lat: String(lat), lon: String(lon), radius_km: '25' });
   return getJson<{ stations: StationInfo[] }>(`/api/aqi/stations?${query}`, signal);
+}
+
+export function evaluateAqi(aqi: number, signal?: AbortSignal): Promise<Advisory> {
+  return requestAuthenticatedJson('/users/me/evaluate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ aqi }),
+    signal,
+  });
+}
+
+export function saveLocationHistory(
+  latitude: number,
+  longitude: number,
+  username: string,
+): Promise<{ stored: boolean }> {
+  const query = new URLSearchParams({ username });
+  return requestAuthenticatedJson(`/location/update?${query}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ latitude, longitude }),
+  });
 }
