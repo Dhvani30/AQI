@@ -41,6 +41,8 @@ interface DashboardProps {
 
 function Dashboard({ username, profileRevision, onUnauthorized, onPlanTrip }: DashboardProps) {
   const { location, loading: locationLoading, error: locationError, requestLocation } = useGeolocation();
+  const [showMapAqiNotice, setShowMapAqiNotice] = useState(true);
+  const [locationPromptDismissed, setLocationPromptDismissed] = useState(false);
   const [advisoryResult, setAdvisoryResult] = useState<{ key: string; data: Advisory } | null>(null);
   const lastHistoryKey = useRef<string | null>(null);
   const [environmentResult, setEnvironmentResult] = useState<{
@@ -52,6 +54,7 @@ function Dashboard({ username, profileRevision, onUnauthorized, onPlanTrip }: Da
   const [reloadKey, setReloadKey] = useState(0);
 
   const retryEnvironment = useCallback(() => setReloadKey((current) => current + 1), []);
+  const showLocationPrompt = !location && !locationPromptDismissed;
   const requestKey = location
     ? `${location.latitude},${location.longitude}:${reloadKey}`
     : null;
@@ -119,6 +122,26 @@ function Dashboard({ username, profileRevision, onUnauthorized, onPlanTrip }: Da
 
   return (
     <>
+      {showLocationPrompt && !location && (
+        <div className="location-dialog-backdrop">
+          <section className="location-dialog" role="dialog" aria-modal="true" aria-labelledby="location-dialog-title">
+            <p className="eyebrow">LOCATION ACCESS</p>
+            <h1 id="location-dialog-title">Use your location?</h1>
+            <p>
+              Allow location access to show nearby air quality and monitoring stations. Your browser may ask you to confirm permission.
+            </p>
+            {locationError && <p className="location-dialog-error" role="alert">{locationError}</p>}
+            <div className="location-dialog-actions">
+              <button type="button" className="location-dialog-later" onClick={() => setLocationPromptDismissed(true)}>
+                Maybe later
+              </button>
+              <button type="button" className="primary-action" onClick={requestLocation} disabled={locationLoading}>
+                {locationLoading ? 'Finding location…' : 'Allow location'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       <div className="map-home">
         <PollutionMap
           location={location}
@@ -130,7 +153,19 @@ function Dashboard({ username, profileRevision, onUnauthorized, onPlanTrip }: Da
           onRetry={retryEnvironment}
           searchRadiusKm={quality?.aqi.search_radius_km ?? 100}
         />
-        {aqi !== null && <div className="map-air-note">Air quality is {aqi} AQI nearby. Check conditions before you leave.</div>}
+        {aqi !== null && showMapAqiNotice && (
+          <div className="map-air-note" role="status">
+            <span>Air quality is {aqi} AQI nearby. Check conditions before you leave.</span>
+            <button
+              type="button"
+              className="map-air-note-close"
+              aria-label="Dismiss air quality map notice"
+              onClick={() => setShowMapAqiNotice(false)}
+            >
+              ×
+            </button>
+          </div>
+        )}
         <LocationBanner
           location={location}
           loading={locationLoading}
@@ -215,12 +250,12 @@ function AuthenticatedApp({ session, onLogout }: AuthenticatedAppProps) {
       
       {page === 'alerts' && <ComingSoonPage title="Alerts" />}
       
-      <div hidden={page !== 'profile'}>
+      {page === 'profile' && (
         <ProfilePage
           onLogout={onLogout}
           onProfileSaved={() => setProfileRevision((revision) => revision + 1)}
         />
-      </div>
+      )}
     </DashboardLayout>
   );
 }

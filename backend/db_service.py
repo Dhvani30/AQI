@@ -64,7 +64,7 @@ async def save_environmental_data(lat: float, lon: float, data: dict):
             "aqi": _as_float(aqi_value),
             "temperature": _as_float(weather_data.get("temperature")),
             "humidity": _as_float(weather_data.get("humidity")),
-            "traffic_index": _as_float(traffic_data.get("traffic_index", traffic_data.get("jam_factor"))),
+            "traffic_index": _as_float(traffic_data.get("traffic_index")),
         }
         fields = {name: value for name, value in fields.items() if value is not None}
         if not fields:

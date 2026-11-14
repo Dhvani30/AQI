@@ -26,6 +26,7 @@ export interface WeatherInfo {
 export interface TrafficInfo {
   current_speed: number | null;
   free_flow_speed: number | null;
+  traffic_index: number | null;
   confidence: number | null;
   road_closed: boolean | null;
   jam_factor: number | null;

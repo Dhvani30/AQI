@@ -14,15 +14,15 @@ export interface UserLocation {
 
 function describeError(error: GeolocationPositionError): string {
   if (error.code === error.PERMISSION_DENIED) {
-    return 'Location permission was denied. Allow location access in your browser, or search for a place manually.';
+    return 'Location permission is blocked. Allow it in your browser or device settings, then try again.';
   }
   if (error.code === error.POSITION_UNAVAILABLE) {
-    return 'Your device could not determine a location. Try again or search for a place manually.';
+    return 'Your device could not determine a location. Turn on location services and try again.';
   }
   if (error.code === error.TIMEOUT) {
-    return 'Location lookup timed out. Try again or search for a place manually.';
+    return 'Location lookup timed out. Check that location services are on and try again.';
   }
-  return 'Could not get your location. Try again or search for a place manually.';
+  return 'Could not get your location. Check browser permission and device location settings, then try again.';
 }
 
 export function useGeolocation() {
@@ -38,7 +38,7 @@ export function useGeolocation() {
   const requestLocation = useCallback(() => {
     const id = ++requestId.current;
     if (!navigator.geolocation) {
-      setError('Location is unavailable. Use HTTPS or localhost, or search for a place manually.');
+      setError('Location is unavailable. Open this app over HTTPS or localhost and check browser permission.');
       return;
     }
 

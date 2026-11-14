@@ -3,24 +3,44 @@
 .env.*
 !.env.example
 !.env.sample
+.envrc
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Python virtual environments and generated files
 venv/
 .venv/
+env/
 backend/users.db
+backend/users.db-*
+*.sqlite
+*.sqlite3
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.hypothesis/
+.tox/
+.nox/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
 htmlcov/
+*.egg-info/
+pip-wheel-metadata/
 
 # Node dependencies and build output
 node_modules/
 dist/
 dist-ssr/
+coverage/
+.vite/
+playwright-report/
+test-results/
 
 # Logs and local-only files
 *.log
@@ -29,11 +49,14 @@ yarn-debug.log*
 pnpm-debug.log*
 *.local
 
+# Local screenshots and review artifacts
+screenshots/
+
 # IDE and operating system files
 .idea/
 .vscode/*
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-assets/
